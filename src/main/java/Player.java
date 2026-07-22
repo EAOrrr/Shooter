@@ -5,7 +5,11 @@ public class Player extends AirPlane {
     private final int worldHeight;
 
     public Player(double x, double y, int width, int height, int maxHp, int worldWidth, int worldHeight) {
-        super(x, y, width, height, maxHp, maxHp);
+        this(x, y, width, height, maxHp, worldWidth, worldHeight, new SimpleShotWeapon(3, 20));
+    }
+
+    public Player(double x, double y, int width, int height, int maxHp, int worldWidth, int worldHeight, Weapon weapon) {
+        super(x, y, width, height, maxHp, maxHp, weapon);
 
         this.worldWidth = worldWidth;
         this.worldHeight = worldHeight;
@@ -33,5 +37,10 @@ public class Player extends AirPlane {
         double maxY = Math.max(0, worldHeight - height);
         x = Math.max(0, Math.min(x, maxX));
         y = Math.max(0, Math.min(y, maxY));
+    }
+
+    @Override
+    protected boolean isPlayer() {
+        return true;
     }
 }

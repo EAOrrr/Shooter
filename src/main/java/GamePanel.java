@@ -1,6 +1,8 @@
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.JPanel;
 
 public class GamePanel extends JPanel implements Runnable {
@@ -8,6 +10,7 @@ public class GamePanel extends JPanel implements Runnable {
     public static final int HEIGHT = 600;
 
     private final Player player;
+    private final List<Bullet> bullets;
     private volatile boolean running;
 
     public GamePanel() {
@@ -16,6 +19,7 @@ public class GamePanel extends JPanel implements Runnable {
         setFocusable(true);
 
         player = new Player((WIDTH - 40) / 2.0, HEIGHT - 80, 40, 40, 100, WIDTH, HEIGHT);
+        bullets = new ArrayList<>();
         addKeyListener(new KeyInput(player));
 
         startGameLoop();
@@ -47,6 +51,16 @@ public class GamePanel extends JPanel implements Runnable {
             lastTime = currentTime;
 
             player.update(delta);
+            player.getWeapon().update(delta);
+            if (player.getWeapon().canShoot()) {
+                bullets.addAll(player.shoot());
+            }
+
+            for (Bullet bullet : bullets) {
+                bullet.update(delta);
+            }
+            bullets.removeIf(bullet -> !bullet.isActive());
+
             repaint();
 
             long elapsed = System.nanoTime() - currentTime;
@@ -75,5 +89,15 @@ public class GamePanel extends JPanel implements Runnable {
             player.getWidth(),
             player.getHeight()
         );
+
+        g.setColor(Color.YELLOW);
+        for (Bullet bullet : bullets) {
+            g.fillRect(
+                (int) Math.round(bullet.getX()),
+                (int) Math.round(bullet.getY()),
+                bullet.getWidth(),
+                bullet.getHeight()
+            );
+        }
     }
 }

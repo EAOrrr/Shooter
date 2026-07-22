@@ -1,0 +1,79 @@
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import javax.swing.JPanel;
+
+public class GamePanel extends JPanel implements Runnable {
+    public static final int WIDTH = 400;
+    public static final int HEIGHT = 600;
+
+    private final Player player;
+    private volatile boolean running;
+
+    public GamePanel() {
+        setPreferredSize(new Dimension(WIDTH, HEIGHT));
+        setBackground(Color.BLACK);
+        setFocusable(true);
+
+        player = new Player((WIDTH - 40) / 2.0, HEIGHT - 80, 40, 40, 100, WIDTH, HEIGHT);
+        addKeyListener(new KeyInput(player));
+
+        startGameLoop();
+    }
+
+    public Player getPlayer() {
+        return player;
+    }
+
+    private void startGameLoop() {
+        if (running) {
+            return;
+        }
+
+        running = true;
+        Thread gameThread = new Thread(this, "game-loop");
+        gameThread.setDaemon(true);
+        gameThread.start();
+    }
+
+    @Override
+    public void run() {
+        long lastTime = System.nanoTime();
+        final long targetFrameNanos = 1_000_000_000L / 60;
+
+        while (running) {
+            long currentTime = System.nanoTime();
+            double delta = (currentTime - lastTime) / 1_000_000_000.0;
+            lastTime = currentTime;
+
+            player.update(delta);
+            repaint();
+
+            long elapsed = System.nanoTime() - currentTime;
+            long sleepNanos = targetFrameNanos - elapsed;
+            if (sleepNanos > 0) {
+                long sleepMillis = sleepNanos / 1_000_000L;
+                int sleepNanosPart = (int) (sleepNanos % 1_000_000L);
+                try {
+                    Thread.sleep(sleepMillis, sleepNanosPart);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    running = false;
+                }
+            }
+        }
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+
+        g.setColor(Color.CYAN);
+        g.fillRect(
+            (int) Math.round(player.getX()),
+            (int) Math.round(player.getY()),
+            player.getWidth(),
+            player.getHeight()
+        );
+    }
+}

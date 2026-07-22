@@ -1,5 +1,6 @@
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -68,7 +69,7 @@ class EnemyCollisionTest {
     }
 
     @Test
-    void bossCollisionDefeatsBossWithoutDamagingPlayer() {
+    void bossCollisionDamagesPlayerWithoutDefeatingBoss() {
         GamePanel panel = new GamePanel(false);
         Player player = panel.getPlayer();
         int initialHp = player.getHp();
@@ -78,7 +79,7 @@ class EnemyCollisionTest {
         panel.addEnemy(boss);
         panel.checkCollisions();
 
-        assertFalse(boss.isActive());
-        assertEquals(initialHp, player.getHp());
+        assertTrue(boss.isActive());
+        assertEquals(initialHp - 10, player.getHp());
     }
 }

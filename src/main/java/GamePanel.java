@@ -280,9 +280,9 @@ public class GamePanel extends JPanel implements Runnable {
             }
 
             if (player.intersects(enemy)) {
-                enemy.setActive(false);
+                player.takeDamage(PLAYER_COLLISION_DAMAGE);
                 if (!(enemy instanceof BossEnemy)) {
-                    player.takeDamage(PLAYER_COLLISION_DAMAGE);
+                    enemy.setActive(false);
                 }
             }
         }

@@ -2,6 +2,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.awt.Graphics;
 import org.junit.jupiter.api.Test;
 
 class CollisionTest {
@@ -47,6 +48,11 @@ class CollisionTest {
         public void update(double delta) {
             x += velocityX * delta;
             y += velocityY * delta;
+        }
+
+        @Override
+        public void draw(Graphics g) {
+            // No-op: rendering is not relevant to collision behavior tests.
         }
     }
 }

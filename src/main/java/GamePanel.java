@@ -1,6 +1,8 @@
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.JPanel;
@@ -11,6 +13,7 @@ public class GamePanel extends JPanel implements Runnable {
 
     private final Player player;
     private final List<Bullet> bullets;
+    private BufferedImage backBuffer;
     private volatile boolean running;
 
     public GamePanel() {
@@ -81,9 +84,27 @@ public class GamePanel extends JPanel implements Runnable {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        player.draw(g);
-        for (Bullet bullet : bullets) {
-            bullet.draw(g);
+
+        int panelWidth = getWidth();
+        int panelHeight = getHeight();
+        if (panelWidth <= 0 || panelHeight <= 0) {
+            return;
         }
+
+        if (backBuffer == null || backBuffer.getWidth() != panelWidth || backBuffer.getHeight() != panelHeight) {
+            backBuffer = new BufferedImage(panelWidth, panelHeight, BufferedImage.TYPE_INT_ARGB);
+        }
+
+        Graphics2D bufferGraphics = backBuffer.createGraphics();
+        bufferGraphics.setColor(getBackground());
+        bufferGraphics.fillRect(0, 0, panelWidth, panelHeight);
+
+        player.draw(bufferGraphics);
+        for (Bullet bullet : bullets) {
+            bullet.draw(bufferGraphics);
+        }
+
+        bufferGraphics.dispose();
+        g.drawImage(backBuffer, 0, 0, null);
     }
 }

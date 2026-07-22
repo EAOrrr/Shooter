@@ -1,3 +1,4 @@
+import java.awt.Graphics;
 import java.awt.Rectangle;
 
 public abstract class GameObject {
@@ -16,6 +17,8 @@ public abstract class GameObject {
     }
 
     public abstract void update(double delta);
+
+    public abstract void draw(Graphics g);
 
     public Rectangle getBounds() {
         return new Rectangle((int) Math.round(x), (int) Math.round(y), width, height);

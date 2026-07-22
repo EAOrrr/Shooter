@@ -81,23 +81,9 @@ public class GamePanel extends JPanel implements Runnable {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-
-        g.setColor(Color.CYAN);
-        g.fillRect(
-            (int) Math.round(player.getX()),
-            (int) Math.round(player.getY()),
-            player.getWidth(),
-            player.getHeight()
-        );
-
-        g.setColor(Color.YELLOW);
+        player.draw(g);
         for (Bullet bullet : bullets) {
-            g.fillRect(
-                (int) Math.round(bullet.getX()),
-                (int) Math.round(bullet.getY()),
-                bullet.getWidth(),
-                bullet.getHeight()
-            );
+            bullet.draw(g);
         }
     }
 }

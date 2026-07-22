@@ -1,3 +1,6 @@
+import java.awt.Color;
+import java.awt.Graphics;
+
 public class Bullet extends GameObject {
     private final double speedX;
     private final double speedY;
@@ -24,6 +27,12 @@ public class Bullet extends GameObject {
         if (y < 0 || y > GamePanel.HEIGHT) {
             active = false;
         }
+    }
+
+    @Override
+    public void draw(Graphics g) {
+        g.setColor(Color.YELLOW);
+        g.fillRect((int) Math.round(x), (int) Math.round(y), width, height);
     }
 
     public boolean isFromPlayer() {

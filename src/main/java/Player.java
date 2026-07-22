@@ -1,3 +1,6 @@
+import java.awt.Color;
+import java.awt.Graphics;
+
 public class Player extends AirPlane {
     private double speedX;
     private double speedY;
@@ -37,6 +40,12 @@ public class Player extends AirPlane {
         double maxY = Math.max(0, worldHeight - height);
         x = Math.max(0, Math.min(x, maxX));
         y = Math.max(0, Math.min(y, maxY));
+    }
+
+    @Override
+    public void draw(Graphics g) {
+        g.setColor(Color.CYAN);
+        g.fillRect((int) Math.round(x), (int) Math.round(y), width, height);
     }
 
     @Override

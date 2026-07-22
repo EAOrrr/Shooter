@@ -19,7 +19,11 @@ public class GamePanel extends JPanel implements Runnable {
     public static final int WIDTH = 400;
     public static final int HEIGHT = 600;
     private static final int INITIAL_BOSS_SCORE_THRESHOLD = 200;
-    private static final int BOSS_SCORE_INCREMENT = 300;
+    private static final int BASE_BOSS_SCORE_INCREMENT = 300;
+    private static final int BOSS_SCORE_INCREMENT_PER_TIER = 60;
+    private static final double PHASE_INCREASE_FACTOR = 1.5;
+    private static final int SCORE_DIFFICULTY_STEP = 800;
+    private static final int MAX_WEAPON_STREAMS = 6;
     private static final double ENEMY_SPAWN_INTERVAL = 1.0;
     private static final long TARGET_FRAME_NANOS = 1_000_000_000L / 60;
     private static final double MAX_DELTA_SECONDS = 0.05;
@@ -93,6 +97,10 @@ public class GamePanel extends JPanel implements Runnable {
         return nextBossScoreThreshold;
     }
 
+    int getCurrentDifficultyTier() {
+        return score / SCORE_DIFFICULTY_STEP;
+    }
+
     GameState getGameState() {
         return gameState;
     }
@@ -115,6 +123,15 @@ public class GamePanel extends JPanel implements Runnable {
 
     void addEnemy(Enemy enemy) {
         enemies.add(enemy);
+    }
+
+    void addScoreForTesting(int points) {
+        if (points <= 0) {
+            return;
+        }
+
+        score += points;
+        bestScore = Math.max(bestScore, score);
     }
 
     void restartGame() {
@@ -276,56 +293,87 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         enemies.removeIf(enemy -> !(enemy instanceof BossEnemy));
+        bullets.removeIf(Bullet::isFromPlayer);
+        enemies.add(createScaledBoss());
+    }
 
+    private BossEnemy createScaledBoss() {
+        int tier = getCurrentDifficultyTier();
+        int bossHp = BossEnemy.DEFAULT_MAX_HP + tier * 120;
+        int bossScore = scaledScore(300, tier);
+        double cooldown = 0.8 * cooldownScale(tier);
         double bossX = (WIDTH - BossEnemy.DEFAULT_WIDTH) / 2.0;
-        enemies.add(new BossEnemy(bossX, 40));
+        return new BossEnemy(bossX, 40, bossHp, bossScore, cooldown);
+    }
+
+    private int calculateBossScoreIncrement() {
+        return BASE_BOSS_SCORE_INCREMENT + getCurrentDifficultyTier() * BOSS_SCORE_INCREMENT_PER_TIER;
     }
 
     private Enemy createRandomEnemy() {
+        int tier = getCurrentDifficultyTier();
         double roll = random.nextDouble();
         if (roll < FAST_ENEMY_SPAWN_PROBABILITY) {
-            return createFastEnemy();
+            return createFastEnemy(tier);
         }
 
         if (roll < FAST_ENEMY_SPAWN_PROBABILITY + STANDARD_ENEMY_SPAWN_PROBABILITY) {
-            return createStandardEnemy();
+            return createStandardEnemy(tier);
         }
 
-        return createHeavyEnemy();
+        return createHeavyEnemy(tier);
     }
 
-    private Enemy createFastEnemy() {
+    private Enemy createFastEnemy(int tier) {
         int size = randomInclusive(20, 28);
-        int hp = randomInclusive(1, 2);
-        double speedY = randomRange(150.0, 240.0);
-        Weapon weapon = createRandomEnemyWeapon();
+        int hp = scaledHp(randomInclusive(1, 2), tier, 1);
+        double speedY = scaledSpeed(randomRange(150.0, 240.0), tier);
+        Weapon weapon = createRandomEnemyWeapon(tier);
         double x = randomRange(0.0, WIDTH - size);
-        return new FastEnemy(x, -size, size, size, speedY, hp, weapon, 15);
+        return new FastEnemy(x, -size, size, size, speedY, hp, weapon, scaledScore(15, tier));
     }
 
-    private Enemy createStandardEnemy() {
+    private Enemy createStandardEnemy(int tier) {
         int size = randomInclusive(28, 38);
-        int hp = randomInclusive(2, 4);
-        double speedY = randomRange(90.0, 160.0);
-        Weapon weapon = createRandomEnemyWeapon();
+        int hp = scaledHp(randomInclusive(2, 4), tier, 2);
+        double speedY = scaledSpeed(randomRange(90.0, 160.0), tier);
+        Weapon weapon = createRandomEnemyWeapon(tier);
         double x = randomRange(0.0, WIDTH - size);
-        return new SimpleEnemy(x, -size, size, size, speedY, hp, 30, weapon);
+        return new SimpleEnemy(x, -size, size, size, speedY, hp, scaledScore(30, tier), weapon);
     }
 
-    private Enemy createHeavyEnemy() {
+    private Enemy createHeavyEnemy(int tier) {
         int size = randomInclusive(40, 56);
-        int hp = randomInclusive(5, 8);
-        double speedY = randomRange(55.0, 110.0);
-        Weapon weapon = createRandomEnemyWeapon();
+        int hp = scaledHp(randomInclusive(5, 8), tier, 3);
+        double speedY = scaledSpeed(randomRange(55.0, 110.0), tier);
+        Weapon weapon = createRandomEnemyWeapon(tier);
         double x = randomRange(0.0, WIDTH - size);
-        return new HeavyEnemy(x, -size, size, size, speedY, hp, weapon, 60);
+        return new HeavyEnemy(x, -size, size, size, speedY, hp, weapon, scaledScore(60, tier));
     }
 
-    private Weapon createRandomEnemyWeapon() {
-        int streamCount = randomInclusive(1, 3);
+    private Weapon createRandomEnemyWeapon(int tier) {
+        int minStreams = Math.min(MAX_WEAPON_STREAMS, 1 + tier / 5);
+        int maxStreams = Math.min(MAX_WEAPON_STREAMS, 3 + tier / 2);
+        int streamCount = randomInclusive(minStreams, maxStreams);
         double spreadWidth = streamCount == 1 ? 0.0 : randomRange(12.0, 40.0);
-        double cooldownInterval = randomRange(0.55, 1.50);
+        double cooldownInterval = randomRange(0.55, 1.50) * cooldownScale(tier);
         return new SimpleShotWeapon(new WeaponStats(streamCount, spreadWidth, cooldownInterval, 1));
+    }
+
+    private int scaledHp(int baseHp, int tier, int perTierBonus) {
+        return baseHp + tier * perTierBonus;
+    }
+
+    private double scaledSpeed(double baseSpeed, int tier) {
+        return baseSpeed * (1.0 + Math.min(0.9, tier * 0.08));
+    }
+
+    private int scaledScore(int baseScore, int tier) {
+        return (int) Math.round(baseScore * (1.0 + tier * 0.25));
+    }
+
+    private double cooldownScale(int tier) {
+        return Math.max(0.45, 1.0 - tier * 0.05);
     }
 
     private int randomInclusive(int min, int max) {
@@ -367,7 +415,9 @@ public class GamePanel extends JPanel implements Runnable {
                         score += enemy.getScoreValue();
                         bestScore = Math.max(bestScore, score);
                         if (enemy instanceof BossEnemy) {
-                            nextBossScoreThreshold = score + BOSS_SCORE_INCREMENT;
+                            nextBossScoreThreshold = Math.max(BASE_BOSS_SCORE_INCREMENT, 
+                               Math.min(score + calculateBossScoreIncrement(),  
+                            (int) Math.round(score * PHASE_INCREASE_FACTOR)));
                         }
                     }
                     break;

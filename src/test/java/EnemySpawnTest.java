@@ -63,7 +63,7 @@ class EnemySpawnTest {
     void reachingBossThresholdClearsRegularEnemiesAndSpawnsBoss() {
         GamePanel panel = new GamePanel(false);
         Enemy survivingEnemy = new SimpleEnemy(20, 20, 30, 30, 100, 2, 30);
-        Enemy thresholdEnemy = new HeavyEnemy(80, 20, 40, 40, 70, 1, new SimpleShotWeapon(1, 0, 1.0), 100);
+        Enemy thresholdEnemy = new HeavyEnemy(80, 20, 40, 40, 70, 1, new SimpleShotWeapon(1, 0, 1.0), 200);
 
         panel.addEnemy(survivingEnemy);
         panel.addEnemy(thresholdEnemy);
@@ -71,7 +71,7 @@ class EnemySpawnTest {
 
         panel.checkCollisions();
 
-        assertEquals(100, panel.getScore());
+        assertEquals(200, panel.getScore());
         assertEquals(1, panel.getEnemies().size());
         assertInstanceOf(BossEnemy.class, panel.getEnemies().get(0));
         assertFalse(panel.getEnemies().contains(survivingEnemy));
@@ -99,7 +99,73 @@ class EnemySpawnTest {
         panel.checkCollisions();
 
         assertEquals(300, panel.getScore());
-        assertEquals(400, panel.getNextBossScoreThreshold());
+        assertEquals(660, panel.getNextBossScoreThreshold());
+    }
+
+    @Test
+    void higherScoreMakesSameArchetypeStrongerAndMoreRewarding() {
+        GamePanel lowScorePanel = new GamePanel(false,
+            new StubRandom(new double[] {0.70, 0.50, 0.25, 0.40}, new int[] {5, 0, 0}));
+        GamePanel highScorePanel = new GamePanel(false,
+            new StubRandom(new double[] {0.70, 0.50, 0.25, 0.40}, new int[] {5, 0, 0}));
+
+        highScorePanel.addScoreForTesting(600);
+
+        Enemy lowEnemy = lowScorePanel.peekSpawnedEnemyForTesting();
+        Enemy highEnemy = highScorePanel.peekSpawnedEnemyForTesting();
+
+        assertInstanceOf(SimpleEnemy.class, lowEnemy);
+        assertInstanceOf(SimpleEnemy.class, highEnemy);
+        assertTrue(highEnemy.getHp() > lowEnemy.getHp());
+        assertTrue(highEnemy.getScoreValue() > lowEnemy.getScoreValue());
+
+        double lowStartY = lowEnemy.getY();
+        double highStartY = highEnemy.getY();
+        lowEnemy.update(1.0);
+        highEnemy.update(1.0);
+        double lowDistance = lowEnemy.getY() - lowStartY;
+        double highDistance = highEnemy.getY() - highStartY;
+        assertTrue(highDistance > lowDistance);
+    }
+
+    @Test
+    void higherScoreIncreasesPotentialWeaponStreamsAndAttackRate() {
+        GamePanel lowScorePanel = new GamePanel(false,
+            new StubRandom(new double[] {0.70, 0.50, 0.25, 0.40}, new int[] {5, 0, 0}));
+        GamePanel highStreamPanel = new GamePanel(false,
+            new StubRandom(new double[] {0.70, 0.50, 0.25, 0.60, 0.40}, new int[] {5, 0, 0}));
+        GamePanel highCooldownPanel = new GamePanel(false,
+            new StubRandom(new double[] {0.70, 0.50, 0.25, 0.40}, new int[] {5, 0, 0}));
+
+        highStreamPanel.addScoreForTesting(1000);
+        highCooldownPanel.addScoreForTesting(200);
+
+        SimpleShotWeapon lowWeapon = (SimpleShotWeapon) lowScorePanel.peekSpawnedEnemyForTesting().getWeapon();
+        SimpleShotWeapon highStreamWeapon = (SimpleShotWeapon) highStreamPanel.peekSpawnedEnemyForTesting().getWeapon();
+        SimpleShotWeapon highCooldownWeapon = (SimpleShotWeapon) highCooldownPanel.peekSpawnedEnemyForTesting().getWeapon();
+
+        assertTrue(highStreamWeapon.getStats().streamCount() > lowWeapon.getStats().streamCount());
+        assertTrue(highCooldownWeapon.getStats().cooldownInterval() < lowWeapon.getStats().cooldownInterval());
+    }
+
+    @Test
+    void higherScoreCreatesStrongerBossAndLargerBossThresholdIncrement() {
+        GamePanel panel = new GamePanel(false);
+        panel.addScoreForTesting(1000);
+
+        panel.spawnBoss();
+
+        Enemy enemy = panel.getEnemies().get(0);
+        assertInstanceOf(BossEnemy.class, enemy);
+        BossEnemy boss = (BossEnemy) enemy;
+        assertTrue(boss.getMaxHp() > BossEnemy.DEFAULT_MAX_HP);
+        assertTrue(boss.getScoreValue() > 300);
+
+        panel.addBullet(new Bullet(boss.getX(), boss.getY(), boss.getWidth(), boss.getHeight(), 0, 0, true, boss.getHp()));
+        panel.checkCollisions();
+
+        int increment = panel.getNextBossScoreThreshold() - panel.getScore();
+        assertTrue(increment > 300);
     }
 
     private static final class StubRandom extends Random {

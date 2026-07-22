@@ -2,6 +2,9 @@ import java.awt.Color;
 import java.awt.Graphics;
 
 public class Player extends AirPlane {
+    private static final double STREAM_SPREAD_STEP = 8.0;
+    private static final double MAX_STREAM_SPREAD_WIDTH_FACTOR = 1.2;
+
     private double speedX;
     private double speedY;
     private final int worldWidth;
@@ -11,7 +14,7 @@ public class Player extends AirPlane {
     private boolean invincible;
 
     public Player(double x, double y, int width, int height, int maxHp, int worldWidth, int worldHeight) {
-        this(x, y, width, height, maxHp, worldWidth, worldHeight, new SimpleShotWeapon(2, 20));
+        this(x, y, width, height, maxHp, worldWidth, worldHeight, new SimpleShotWeapon(new WeaponStats(1, 0.0, 0.2, 1)));
     }
 
     public Player(double x, double y, int width, int height, int maxHp, int worldWidth, int worldHeight, Weapon weapon) {
@@ -55,7 +58,9 @@ public class Player extends AirPlane {
 
         WeaponStats current = upgradableWeapon.getStats();
         int nextStreams = Math.min(maxStreams, current.streamCount() + increment);
-        upgradableWeapon.applyStats(new WeaponStats(nextStreams, current.spreadWidth(), current.cooldownInterval(), current.bulletDamage()));
+        int addedStreams = nextStreams - current.streamCount();
+        double nextSpreadWidth = Math.min(getMaxStreamSpreadWidth(), current.spreadWidth() + addedStreams * STREAM_SPREAD_STEP);
+        upgradableWeapon.applyStats(new WeaponStats(nextStreams, nextSpreadWidth, current.cooldownInterval(), current.bulletDamage()));
     }
 
     public void upgradeWeaponCooldown(double factor, double minCooldown) {
@@ -96,6 +101,14 @@ public class Player extends AirPlane {
         this.invincible = invincible;
     }
 
+    public void restoreHp(int amount) {
+        if (amount <= 0 || hp <= 0) {
+            return;
+        }
+
+        hp = Math.min(maxHp, hp + amount);
+    }
+
     void resetToSpawn() {
         x = spawnX;
         y = spawnY;
@@ -104,7 +117,7 @@ public class Player extends AirPlane {
         hp = maxHp;
         active = true;
         invincible = false;
-        weapon = new SimpleShotWeapon(3, 20);
+        weapon = new SimpleShotWeapon(new WeaponStats(1, 0.0, 0.2, 1));
     }
 
     private UpgradableWeapon getUpgradableWeapon() {
@@ -112,6 +125,10 @@ public class Player extends AirPlane {
             return upgradableWeapon;
         }
         return null;
+    }
+
+    private double getMaxStreamSpreadWidth() {
+        return width * MAX_STREAM_SPREAD_WIDTH_FACTOR;
     }
 
     @Override

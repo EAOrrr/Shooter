@@ -7,6 +7,14 @@ import org.junit.jupiter.api.Test;
 class PlayerTest {
 
     @Test
+    void defaultPlayerStartsWithSingleStreamWeapon() {
+        Player player = new Player(100, 200, 40, 40, 100, 400, 600);
+
+        UpgradableWeapon weapon = (UpgradableWeapon) player.getWeapon();
+        assertEquals(1, weapon.getStats().streamCount());
+    }
+
+    @Test
     void updateUsesDeltaForVelocityScaling() {
         Player player = new Player(100, 200, 40, 40, 100, 400, 600);
         player.setSpeed(200, 0);

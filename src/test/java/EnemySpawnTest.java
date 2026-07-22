@@ -99,7 +99,7 @@ class EnemySpawnTest {
         panel.checkCollisions();
 
         assertEquals(300, panel.getScore());
-        assertEquals(660, panel.getNextBossScoreThreshold());
+        assertEquals(450, panel.getNextBossScoreThreshold());
     }
 
     @Test
@@ -109,7 +109,7 @@ class EnemySpawnTest {
         GamePanel highScorePanel = new GamePanel(false,
             new StubRandom(new double[] {0.70, 0.50, 0.25, 0.40}, new int[] {5, 0, 0}));
 
-        highScorePanel.addScoreForTesting(600);
+        highScorePanel.addScoreForTesting(1600);
 
         Enemy lowEnemy = lowScorePanel.peekSpawnedEnemyForTesting();
         Enemy highEnemy = highScorePanel.peekSpawnedEnemyForTesting();
@@ -137,8 +137,8 @@ class EnemySpawnTest {
         GamePanel highCooldownPanel = new GamePanel(false,
             new StubRandom(new double[] {0.70, 0.50, 0.25, 0.40}, new int[] {5, 0, 0}));
 
-        highStreamPanel.addScoreForTesting(1000);
-        highCooldownPanel.addScoreForTesting(200);
+        highStreamPanel.addScoreForTesting(4000);
+        highCooldownPanel.addScoreForTesting(1000);
 
         SimpleShotWeapon lowWeapon = (SimpleShotWeapon) lowScorePanel.peekSpawnedEnemyForTesting().getWeapon();
         SimpleShotWeapon highStreamWeapon = (SimpleShotWeapon) highStreamPanel.peekSpawnedEnemyForTesting().getWeapon();

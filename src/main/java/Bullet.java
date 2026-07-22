@@ -31,7 +31,7 @@ public class Bullet extends GameObject {
 
     @Override
     public void draw(Graphics g) {
-        g.setColor(Color.YELLOW);
+        g.setColor(fromPlayer ? Color.YELLOW : Color.ORANGE);
         g.fillRect((int) Math.round(x), (int) Math.round(y), width, height);
     }
 

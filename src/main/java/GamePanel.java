@@ -9,6 +9,12 @@ import java.util.concurrent.locks.LockSupport;
 import javax.swing.JPanel;
 
 public class GamePanel extends JPanel implements Runnable {
+    enum GameState {
+        RUNNING,
+        PENDING,
+        END
+    }
+
     public static final int WIDTH = 400;
     public static final int HEIGHT = 600;
     private static final double ENEMY_SPAWN_INTERVAL = 1.0;
@@ -24,6 +30,8 @@ public class GamePanel extends JPanel implements Runnable {
     private double spawnTimer;
     private BufferedImage backBuffer;
     private volatile boolean running;
+    private volatile boolean showHitbox;
+    private volatile GameState gameState;
 
     public GamePanel() {
         this(true);
@@ -39,7 +47,9 @@ public class GamePanel extends JPanel implements Runnable {
         bullets = new ArrayList<>();
         enemies = new ArrayList<>();
         stateLock = new Object();
-        addKeyListener(new KeyInput(player));
+        gameState = GameState.RUNNING;
+        addKeyListener(new KeyInput(player, this));
+        spawnBoss();
 
         if (autoStart) {
             startGameLoop();
@@ -62,12 +72,41 @@ public class GamePanel extends JPanel implements Runnable {
         return enemies;
     }
 
+    GameState getGameState() {
+        return gameState;
+    }
+
+    boolean isShowHitbox() {
+        return showHitbox;
+    }
+
+    void setShowHitbox(boolean showHitbox) {
+        this.showHitbox = showHitbox;
+    }
+
+    void toggleShowHitbox() {
+        showHitbox = !showHitbox;
+    }
+
     void addBullet(Bullet bullet) {
         bullets.add(bullet);
     }
 
     void addEnemy(Enemy enemy) {
         enemies.add(enemy);
+    }
+
+    void restartGame() {
+        synchronized (stateLock) {
+            score = 0;
+            spawnTimer = 0.0;
+            showHitbox = false;
+            bullets.clear();
+            enemies.clear();
+            player.resetToSpawn();
+            gameState = GameState.RUNNING;
+            spawnBoss();
+        }
     }
 
     private void startGameLoop() {
@@ -92,22 +131,29 @@ public class GamePanel extends JPanel implements Runnable {
             lastTime = currentTime;
 
             synchronized (stateLock) {
-                player.update(delta);
-                player.getWeapon().update(delta);
-                if (player.getWeapon().canShoot()) {
-                    bullets.addAll(player.shoot());
-                }
+                if (gameState == GameState.RUNNING) {
+                    player.update(delta);
+                    player.getWeapon().update(delta);
+                    if (player.getWeapon().canShoot()) {
+                        bullets.addAll(player.shoot());
+                    }
 
-                spawnEnemies(delta);
+                    spawnEnemies(delta);
 
-                for (Bullet bullet : bullets) {
-                    bullet.update(delta);
-                }
-                for (Enemy enemy : enemies) {
-                    enemy.update(delta);
-                }
+                    for (Bullet bullet : bullets) {
+                        bullet.update(delta);
+                    }
+                    for (Enemy enemy : enemies) {
+                        enemy.update(delta);
+                        enemy.getWeapon().update(delta);
+                        if (enemy.getWeapon().canShoot()) {
+                            bullets.addAll(enemy.shoot());
+                        }
+                    }
 
-                checkCollisions();
+                    checkCollisions();
+                    updateGameState();
+                }
 
                 bullets.removeIf(bullet -> !bullet.isActive());
                 enemies.removeIf(enemy -> !enemy.isActive());
@@ -145,12 +191,21 @@ public class GamePanel extends JPanel implements Runnable {
         bufferGraphics.fillRect(0, 0, panelWidth, panelHeight);
 
         synchronized (stateLock) {
-            player.draw(bufferGraphics);
+            if (player.isActive()) {
+                player.draw(bufferGraphics);
+            }
             for (Enemy enemy : enemies) {
                 enemy.draw(bufferGraphics);
             }
             for (Bullet bullet : bullets) {
                 bullet.draw(bufferGraphics);
+            }
+
+            drawHud(bufferGraphics);
+            drawGameStateOverlay(bufferGraphics);
+
+            if (showHitbox) {
+                drawHitboxes(bufferGraphics);
             }
         }
 
@@ -171,9 +226,29 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
+    void spawnBoss() {
+        synchronized (stateLock) {
+            boolean hasActiveBoss = enemies.stream().anyMatch(enemy -> enemy instanceof BossEnemy && enemy.isActive());
+            if (hasActiveBoss) {
+                return;
+            }
+
+            double bossX = (WIDTH - BossEnemy.DEFAULT_WIDTH) / 2.0;
+            enemies.add(new BossEnemy(bossX, 40));
+        }
+    }
+
     void checkCollisions() {
         for (Bullet bullet : bullets) {
-            if (!bullet.isActive() || !bullet.isFromPlayer()) {
+            if (!bullet.isActive()) {
+                continue;
+            }
+
+            if (!bullet.isFromPlayer()) {
+                if (player.isActive() && bullet.intersects(player)) {
+                    bullet.setActive(false);
+                    player.takeDamage(bullet.getDamage());
+                }
                 continue;
             }
 
@@ -195,6 +270,7 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         if (!player.isActive()) {
+            updateGameState();
             return;
         }
 
@@ -205,8 +281,77 @@ public class GamePanel extends JPanel implements Runnable {
 
             if (player.intersects(enemy)) {
                 enemy.setActive(false);
-                player.takeDamage(PLAYER_COLLISION_DAMAGE);
+                if (!(enemy instanceof BossEnemy)) {
+                    player.takeDamage(PLAYER_COLLISION_DAMAGE);
+                }
             }
+        }
+
+        updateGameState();
+    }
+
+    private void drawHitboxes(Graphics2D g) {
+        g.setColor(Color.GREEN);
+        g.drawRect((int) Math.round(player.getX()), (int) Math.round(player.getY()), player.getWidth(), player.getHeight());
+
+        for (Enemy enemy : enemies) {
+            g.drawRect((int) Math.round(enemy.getX()), (int) Math.round(enemy.getY()), enemy.getWidth(), enemy.getHeight());
+        }
+
+        for (Bullet bullet : bullets) {
+            g.drawRect((int) Math.round(bullet.getX()), (int) Math.round(bullet.getY()), bullet.getWidth(), bullet.getHeight());
+        }
+    }
+
+    private void drawHud(Graphics2D g) {
+        g.setColor(Color.WHITE);
+        g.drawString("Player HP: " + player.getHp() + "/" + player.getMaxHp(), 10, 20);
+
+        BossEnemy boss = findActiveBoss();
+        if (boss == null) {
+            return;
+        }
+
+        int barX = 10;
+        int barY = 30;
+        int barWidth = WIDTH - 20;
+        int barHeight = 12;
+        double ratio = Math.max(0.0, Math.min(1.0, boss.getHp() / (double) boss.getMaxHp()));
+        int filledWidth = (int) Math.round(barWidth * ratio);
+
+        g.setColor(Color.DARK_GRAY);
+        g.fillRect(barX, barY, barWidth, barHeight);
+        g.setColor(Color.RED);
+        g.fillRect(barX, barY, filledWidth, barHeight);
+        g.setColor(Color.WHITE);
+        g.drawRect(barX, barY, barWidth, barHeight);
+        g.drawString("Boss HP: " + boss.getHp() + "/" + boss.getMaxHp(), barX, barY + barHeight + 14);
+    }
+
+    private void drawGameStateOverlay(Graphics2D g) {
+        if (gameState != GameState.END) {
+            return;
+        }
+
+        g.setColor(new Color(0, 0, 0, 160));
+        g.fillRect(0, 0, WIDTH, HEIGHT);
+        g.setColor(Color.WHITE);
+        g.drawString("GAME OVER", WIDTH / 2 - 38, HEIGHT / 2 - 6);
+        g.drawString("Press R to Restart", WIDTH / 2 - 58, HEIGHT / 2 + 18);
+    }
+
+    private BossEnemy findActiveBoss() {
+        for (Enemy enemy : enemies) {
+            if (enemy instanceof BossEnemy boss && boss.isActive()) {
+                return boss;
+            }
+        }
+        return null;
+    }
+
+    private void updateGameState() {
+        if (!player.isActive()) {
+            gameState = GameState.END;
         }
     }
 }

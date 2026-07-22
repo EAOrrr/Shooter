@@ -167,7 +167,7 @@ public class GamePanel extends JPanel implements Runnable {
         while (spawnTimer >= ENEMY_SPAWN_INTERVAL) {
             spawnTimer -= ENEMY_SPAWN_INTERVAL;
             double x = Math.random() * (WIDTH - 30);
-            enemies.add(new SimpleEnemy(x, -30, 100, 10));
+            enemies.add(new SimpleEnemy(x, -30, 100, 1));
         }
     }
 

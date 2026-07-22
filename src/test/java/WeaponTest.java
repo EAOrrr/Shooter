@@ -31,4 +31,26 @@ class WeaponTest {
         assertEquals(1, weapon.shoot(100, 500, true).size());
         assertEquals(0.0, weapon.getCooldownTimer(), 1e-9);
     }
+
+    @Test
+    void applyStatsPreservesCooldownProgressRatio() {
+        SimpleShotWeapon weapon = new SimpleShotWeapon(1, 0, 0.2);
+        weapon.update(0.1);
+
+        weapon.applyStats(new WeaponStats(1, 0, 0.1, 1));
+
+        assertEquals(0.05, weapon.getCooldownTimer(), 1e-9);
+    }
+
+    @Test
+    void upgradedBulletDamageIsAppliedToSpawnedBullets() {
+        SimpleShotWeapon weapon = new SimpleShotWeapon(1, 0, 0.2);
+        weapon.applyStats(new WeaponStats(1, 0, 0.2, 3));
+        weapon.update(0.2);
+
+        List<Bullet> bullets = weapon.shoot(100, 500, true);
+
+        assertEquals(1, bullets.size());
+        assertEquals(3, bullets.get(0).getDamage());
+    }
 }

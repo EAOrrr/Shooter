@@ -31,6 +31,58 @@ public class Player extends AirPlane {
         return speedY;
     }
 
+    public void upgradeWeaponStreams(int increment, int maxStreams) {
+        if (increment <= 0) {
+            return;
+        }
+
+        UpgradableWeapon upgradableWeapon = getUpgradableWeapon();
+        if (upgradableWeapon == null) {
+            return;
+        }
+
+        WeaponStats current = upgradableWeapon.getStats();
+        int nextStreams = Math.min(maxStreams, current.streamCount() + increment);
+        upgradableWeapon.applyStats(new WeaponStats(nextStreams, current.spreadWidth(), current.cooldownInterval(), current.bulletDamage()));
+    }
+
+    public void upgradeWeaponCooldown(double factor, double minCooldown) {
+        if (factor <= 0) {
+            return;
+        }
+
+        UpgradableWeapon upgradableWeapon = getUpgradableWeapon();
+        if (upgradableWeapon == null) {
+            return;
+        }
+
+        WeaponStats current = upgradableWeapon.getStats();
+        double nextCooldown = Math.max(minCooldown, current.cooldownInterval() * factor);
+        upgradableWeapon.applyStats(new WeaponStats(current.streamCount(), current.spreadWidth(), nextCooldown, current.bulletDamage()));
+    }
+
+    public void upgradeWeaponDamage(int increment, int maxDamage) {
+        if (increment <= 0) {
+            return;
+        }
+
+        UpgradableWeapon upgradableWeapon = getUpgradableWeapon();
+        if (upgradableWeapon == null) {
+            return;
+        }
+
+        WeaponStats current = upgradableWeapon.getStats();
+        int nextDamage = Math.min(maxDamage, current.bulletDamage() + increment);
+        upgradableWeapon.applyStats(new WeaponStats(current.streamCount(), current.spreadWidth(), current.cooldownInterval(), nextDamage));
+    }
+
+    private UpgradableWeapon getUpgradableWeapon() {
+        if (weapon instanceof UpgradableWeapon upgradableWeapon) {
+            return upgradableWeapon;
+        }
+        return null;
+    }
+
     @Override
     public void update(double delta) {
         x += speedX * delta;

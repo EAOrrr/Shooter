@@ -10,7 +10,7 @@ class BossTest {
     void bossStartsWithSimpleShotWeaponAtFullHp() {
         BossEnemy boss = new BossEnemy(150, 40);
 
-        assertEquals(500, boss.getHp());
+        assertEquals(200, boss.getHp());
         assertInstanceOf(SimpleShotWeapon.class, boss.getWeapon());
     }
 
@@ -18,10 +18,10 @@ class BossTest {
     void bossMutatesWeaponToSpreadWhenHpDropsBelowHalf() {
         BossEnemy boss = new BossEnemy(150, 40);
 
-        boss.takeDamage(260);
+        boss.takeDamage(140);
         boss.update(0.016);
 
-        assertEquals(240, boss.getHp());
+        assertEquals(60, boss.getHp());
         assertInstanceOf(SpreadWeapon.class, boss.getWeapon());
         assertEquals(2, boss.getPhase());
     }

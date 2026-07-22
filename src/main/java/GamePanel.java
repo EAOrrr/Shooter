@@ -25,6 +25,8 @@ public class GamePanel extends JPanel implements Runnable {
     private static final int SCORE_DIFFICULTY_STEP = 800;
     private static final int MAX_WEAPON_STREAMS = 6;
     private static final double ENEMY_SPAWN_INTERVAL = 1.0;
+    private static final double REWARD_MIN_SPAWN_INTERVAL = 3.0;
+    private static final double REWARD_MAX_SPAWN_INTERVAL = 6.0;
     private static final long TARGET_FRAME_NANOS = 1_000_000_000L / 60;
     private static final double MAX_DELTA_SECONDS = 0.05;
     private static final int PLAYER_COLLISION_DAMAGE = 10;
@@ -34,12 +36,15 @@ public class GamePanel extends JPanel implements Runnable {
     private final Player player;
     private final List<Bullet> bullets;
     private final List<Enemy> enemies;
+    private final List<RewardItem> rewardItems;
     private final Random random;
     private final Object stateLock;
     private int score;
     private int bestScore;
     private int nextBossScoreThreshold;
     private double spawnTimer;
+    private double rewardSpawnTimer;
+    private double nextRewardSpawnInterval;
     private BufferedImage backBuffer;
     private volatile boolean running;
     private volatile boolean showHitbox;
@@ -63,9 +68,12 @@ public class GamePanel extends JPanel implements Runnable {
         player = new Player((WIDTH - 40) / 2.0, HEIGHT - 80, 40, 40, 1000, WIDTH, HEIGHT);
         bullets = new ArrayList<>();
         enemies = new ArrayList<>();
+        rewardItems = new ArrayList<>();
         stateLock = new Object();
         gameState = GameState.RUNNING;
         nextBossScoreThreshold = INITIAL_BOSS_SCORE_THRESHOLD;
+        rewardSpawnTimer = 0.0;
+        nextRewardSpawnInterval = 0.0;
         addKeyListener(new KeyInput(player, this));
 
         if (autoStart) {
@@ -91,6 +99,10 @@ public class GamePanel extends JPanel implements Runnable {
 
     List<Enemy> getEnemies() {
         return enemies;
+    }
+
+    List<RewardItem> getRewardItems() {
+        return rewardItems;
     }
 
     int getNextBossScoreThreshold() {
@@ -125,6 +137,10 @@ public class GamePanel extends JPanel implements Runnable {
         enemies.add(enemy);
     }
 
+    void addRewardItem(RewardItem rewardItem) {
+        rewardItems.add(rewardItem);
+    }
+
     void addScoreForTesting(int points) {
         if (points <= 0) {
             return;
@@ -139,9 +155,12 @@ public class GamePanel extends JPanel implements Runnable {
             score = 0;
             nextBossScoreThreshold = INITIAL_BOSS_SCORE_THRESHOLD;
             spawnTimer = 0.0;
+            rewardSpawnTimer = 0.0;
+            nextRewardSpawnInterval = 0.0;
             showHitbox = false;
             bullets.clear();
             enemies.clear();
+            rewardItems.clear();
             player.resetToSpawn();
             gameState = GameState.RUNNING;
         }
@@ -177,6 +196,7 @@ public class GamePanel extends JPanel implements Runnable {
                     }
 
                     spawnEnemies(delta);
+                    spawnRewards(delta);
 
                     for (Bullet bullet : bullets) {
                         bullet.update(delta);
@@ -188,6 +208,9 @@ public class GamePanel extends JPanel implements Runnable {
                             bullets.addAll(enemy.shoot());
                         }
                     }
+                    for (RewardItem rewardItem : rewardItems) {
+                        rewardItem.update(delta);
+                    }
 
                     checkCollisions();
                     updateGameState();
@@ -195,6 +218,7 @@ public class GamePanel extends JPanel implements Runnable {
 
                 bullets.removeIf(bullet -> !bullet.isActive());
                 enemies.removeIf(enemy -> !enemy.isActive());
+                rewardItems.removeIf(rewardItem -> !rewardItem.isActive());
             }
 
             repaint();
@@ -238,6 +262,9 @@ public class GamePanel extends JPanel implements Runnable {
             for (Bullet bullet : bullets) {
                 bullet.draw(bufferGraphics);
             }
+            for (RewardItem rewardItem : rewardItems) {
+                rewardItem.draw(bufferGraphics);
+            }
 
             drawHud(bufferGraphics);
             drawGameStateOverlay(bufferGraphics);
@@ -269,6 +296,23 @@ public class GamePanel extends JPanel implements Runnable {
         while (spawnTimer >= ENEMY_SPAWN_INTERVAL) {
             spawnTimer -= ENEMY_SPAWN_INTERVAL;
             enemies.add(createRandomEnemy());
+        }
+    }
+
+    void spawnRewards(double delta) {
+        if (delta <= 0) {
+            return;
+        }
+
+        if (nextRewardSpawnInterval <= 0.0) {
+            nextRewardSpawnInterval = randomRange(REWARD_MIN_SPAWN_INTERVAL, REWARD_MAX_SPAWN_INTERVAL);
+        }
+
+        rewardSpawnTimer += delta;
+        while (rewardSpawnTimer >= nextRewardSpawnInterval) {
+            rewardSpawnTimer -= nextRewardSpawnInterval;
+            rewardItems.add(createRandomReward());
+            nextRewardSpawnInterval = randomRange(REWARD_MIN_SPAWN_INTERVAL, REWARD_MAX_SPAWN_INTERVAL);
         }
     }
 
@@ -388,6 +432,10 @@ public class GamePanel extends JPanel implements Runnable {
         return createRandomEnemy();
     }
 
+    RewardItem peekSpawnedRewardForTesting() {
+        return createRandomReward();
+    }
+
     void checkCollisions() {
         for (Bullet bullet : bullets) {
             if (!bullet.isActive()) {
@@ -415,8 +463,8 @@ public class GamePanel extends JPanel implements Runnable {
                         score += enemy.getScoreValue();
                         bestScore = Math.max(bestScore, score);
                         if (enemy instanceof BossEnemy) {
-                            nextBossScoreThreshold = Math.max(BASE_BOSS_SCORE_INCREMENT, 
-                               Math.min(score + calculateBossScoreIncrement(),  
+                            nextBossScoreThreshold = Math.max(BASE_BOSS_SCORE_INCREMENT,
+                               Math.min(score + calculateBossScoreIncrement(),
                             (int) Math.round(score * PHASE_INCREASE_FACTOR)));
                         }
                     }
@@ -445,6 +493,17 @@ public class GamePanel extends JPanel implements Runnable {
             }
         }
 
+        for (RewardItem rewardItem : rewardItems) {
+            if (!rewardItem.isActive()) {
+                continue;
+            }
+
+            if (player.intersects(rewardItem)) {
+                rewardItem.setActive(false);
+                rewardItem.applyTo(player, score, random);
+            }
+        }
+
         updateGameState();
     }
 
@@ -458,6 +517,10 @@ public class GamePanel extends JPanel implements Runnable {
 
         for (Bullet bullet : bullets) {
             g.drawRect((int) Math.round(bullet.getX()), (int) Math.round(bullet.getY()), bullet.getWidth(), bullet.getHeight());
+        }
+
+        for (RewardItem rewardItem : rewardItems) {
+            g.drawRect((int) Math.round(rewardItem.getX()), (int) Math.round(rewardItem.getY()), rewardItem.getWidth(), rewardItem.getHeight());
         }
     }
 
@@ -513,5 +576,14 @@ public class GamePanel extends JPanel implements Runnable {
         if (!player.isActive()) {
             gameState = GameState.END;
         }
+    }
+
+    private RewardItem createRandomReward() {
+        int tier = getCurrentDifficultyTier();
+        int size = randomInclusive(16, 24);
+        double x = randomRange(0.0, WIDTH - size);
+        double fallSpeed = scaledSpeed(randomRange(70.0, 130.0), tier);
+        RewardItem.RewardType rewardType = RewardItem.randomType(random);
+        return new RewardItem(x, -size, size, size, fallSpeed, rewardType);
     }
 }

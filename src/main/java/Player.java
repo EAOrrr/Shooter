@@ -31,6 +31,13 @@ public class Player extends AirPlane {
         return speedY;
     }
 
+    public void upgradeWeapon() {
+        if (weapon instanceof SpreadWeapon) {
+            return;
+        }
+        weapon = new SpreadWeapon(3, 30);
+    }
+
     public void upgradeWeaponStreams(int increment, int maxStreams) {
         if (increment <= 0) {
             return;

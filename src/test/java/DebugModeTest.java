@@ -35,5 +35,6 @@ class DebugModeTest {
         assertTrue(player.isInvincible());
         assertTrue(panel.isShowHitbox());
         assertTrue(panel.getEnemies().stream().anyMatch(enemy -> enemy instanceof BossEnemy));
+        assertEquals(1, panel.getEnemies().size());
     }
 }

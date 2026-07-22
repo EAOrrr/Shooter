@@ -13,7 +13,11 @@ public class SimpleEnemy extends Enemy {
     }
 
     public SimpleEnemy(double x, double y, int width, int height, double speedY, int hp, int scoreValue) {
-        super(x, y, width, height, hp, hp, new SimpleShotWeapon(1, 0, 1.2), scoreValue);
+        this(x, y, width, height, speedY, hp, scoreValue, new SimpleShotWeapon(1, 0, 1.2));
+    }
+
+    public SimpleEnemy(double x, double y, int width, int height, double speedY, int hp, int scoreValue, Weapon weapon) {
+        super(x, y, width, height, hp, hp, weapon, scoreValue);
         this.speedY = speedY;
     }
 

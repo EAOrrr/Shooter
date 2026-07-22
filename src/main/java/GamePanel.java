@@ -5,6 +5,7 @@ import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.locks.LockSupport;
 import javax.swing.JPanel;
 
@@ -17,16 +18,23 @@ public class GamePanel extends JPanel implements Runnable {
 
     public static final int WIDTH = 400;
     public static final int HEIGHT = 600;
+    private static final int INITIAL_BOSS_SCORE_THRESHOLD = 200;
+    private static final int BOSS_SCORE_INCREMENT = 300;
     private static final double ENEMY_SPAWN_INTERVAL = 1.0;
     private static final long TARGET_FRAME_NANOS = 1_000_000_000L / 60;
     private static final double MAX_DELTA_SECONDS = 0.05;
     private static final int PLAYER_COLLISION_DAMAGE = 10;
+    private static final double FAST_ENEMY_SPAWN_PROBABILITY = 0.50;
+    private static final double STANDARD_ENEMY_SPAWN_PROBABILITY = 0.35;
 
     private final Player player;
     private final List<Bullet> bullets;
     private final List<Enemy> enemies;
+    private final Random random;
     private final Object stateLock;
     private int score;
+    private int bestScore;
+    private int nextBossScoreThreshold;
     private double spawnTimer;
     private BufferedImage backBuffer;
     private volatile boolean running;
@@ -38,18 +46,23 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public GamePanel(boolean autoStart) {
+        this(autoStart, new Random());
+    }
+
+    GamePanel(boolean autoStart, Random random) {
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
         setBackground(Color.BLACK);
         setDoubleBuffered(true);
         setFocusable(true);
 
-        player = new Player((WIDTH - 40) / 2.0, HEIGHT - 80, 40, 40, 20, WIDTH, HEIGHT);
+        this.random = random;
+        player = new Player((WIDTH - 40) / 2.0, HEIGHT - 80, 40, 40, 1000, WIDTH, HEIGHT);
         bullets = new ArrayList<>();
         enemies = new ArrayList<>();
         stateLock = new Object();
         gameState = GameState.RUNNING;
+        nextBossScoreThreshold = INITIAL_BOSS_SCORE_THRESHOLD;
         addKeyListener(new KeyInput(player, this));
-        spawnBoss();
 
         if (autoStart) {
             startGameLoop();
@@ -64,12 +77,20 @@ public class GamePanel extends JPanel implements Runnable {
         return score;
     }
 
+    int getBestScore() {
+        return bestScore;
+    }
+
     List<Bullet> getBullets() {
         return bullets;
     }
 
     List<Enemy> getEnemies() {
         return enemies;
+    }
+
+    int getNextBossScoreThreshold() {
+        return nextBossScoreThreshold;
     }
 
     GameState getGameState() {
@@ -99,13 +120,13 @@ public class GamePanel extends JPanel implements Runnable {
     void restartGame() {
         synchronized (stateLock) {
             score = 0;
+            nextBossScoreThreshold = INITIAL_BOSS_SCORE_THRESHOLD;
             spawnTimer = 0.0;
             showHitbox = false;
             bullets.clear();
             enemies.clear();
             player.resetToSpawn();
             gameState = GameState.RUNNING;
-            spawnBoss();
         }
     }
 
@@ -214,6 +235,15 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     void spawnEnemies(double delta) {
+        if (findActiveBoss() != null) {
+            return;
+        }
+
+        if (score >= nextBossScoreThreshold) {
+            spawnBossIfEligible();
+            return;
+        }
+
         if (delta <= 0) {
             return;
         }
@@ -221,21 +251,93 @@ public class GamePanel extends JPanel implements Runnable {
         spawnTimer += delta;
         while (spawnTimer >= ENEMY_SPAWN_INTERVAL) {
             spawnTimer -= ENEMY_SPAWN_INTERVAL;
-            double x = Math.random() * (WIDTH - 30);
-            enemies.add(new SimpleEnemy(x, -30, 100, 1));
+            enemies.add(createRandomEnemy());
         }
     }
 
     void spawnBoss() {
         synchronized (stateLock) {
-            boolean hasActiveBoss = enemies.stream().anyMatch(enemy -> enemy instanceof BossEnemy && enemy.isActive());
-            if (hasActiveBoss) {
-                return;
-            }
-
-            double bossX = (WIDTH - BossEnemy.DEFAULT_WIDTH) / 2.0;
-            enemies.add(new BossEnemy(bossX, 40));
+            spawnBoss(true);
         }
+    }
+
+    private void spawnBossIfEligible() {
+        spawnBoss(false);
+    }
+
+    private void spawnBoss(boolean force) {
+        if (!force && score < nextBossScoreThreshold) {
+            return;
+        }
+
+        boolean hasActiveBoss = enemies.stream().anyMatch(enemy -> enemy instanceof BossEnemy && enemy.isActive());
+        if (hasActiveBoss) {
+            return;
+        }
+
+        enemies.removeIf(enemy -> !(enemy instanceof BossEnemy));
+
+        double bossX = (WIDTH - BossEnemy.DEFAULT_WIDTH) / 2.0;
+        enemies.add(new BossEnemy(bossX, 40));
+    }
+
+    private Enemy createRandomEnemy() {
+        double roll = random.nextDouble();
+        if (roll < FAST_ENEMY_SPAWN_PROBABILITY) {
+            return createFastEnemy();
+        }
+
+        if (roll < FAST_ENEMY_SPAWN_PROBABILITY + STANDARD_ENEMY_SPAWN_PROBABILITY) {
+            return createStandardEnemy();
+        }
+
+        return createHeavyEnemy();
+    }
+
+    private Enemy createFastEnemy() {
+        int size = randomInclusive(20, 28);
+        int hp = randomInclusive(1, 2);
+        double speedY = randomRange(150.0, 240.0);
+        Weapon weapon = createRandomEnemyWeapon();
+        double x = randomRange(0.0, WIDTH - size);
+        return new FastEnemy(x, -size, size, size, speedY, hp, weapon, 15);
+    }
+
+    private Enemy createStandardEnemy() {
+        int size = randomInclusive(28, 38);
+        int hp = randomInclusive(2, 4);
+        double speedY = randomRange(90.0, 160.0);
+        Weapon weapon = createRandomEnemyWeapon();
+        double x = randomRange(0.0, WIDTH - size);
+        return new SimpleEnemy(x, -size, size, size, speedY, hp, 30, weapon);
+    }
+
+    private Enemy createHeavyEnemy() {
+        int size = randomInclusive(40, 56);
+        int hp = randomInclusive(5, 8);
+        double speedY = randomRange(55.0, 110.0);
+        Weapon weapon = createRandomEnemyWeapon();
+        double x = randomRange(0.0, WIDTH - size);
+        return new HeavyEnemy(x, -size, size, size, speedY, hp, weapon, 60);
+    }
+
+    private Weapon createRandomEnemyWeapon() {
+        int streamCount = randomInclusive(1, 3);
+        double spreadWidth = streamCount == 1 ? 0.0 : randomRange(12.0, 40.0);
+        double cooldownInterval = randomRange(0.55, 1.50);
+        return new SimpleShotWeapon(new WeaponStats(streamCount, spreadWidth, cooldownInterval, 1));
+    }
+
+    private int randomInclusive(int min, int max) {
+        return min + random.nextInt(max - min + 1);
+    }
+
+    private double randomRange(double min, double max) {
+        return min + random.nextDouble() * (max - min);
+    }
+
+    Enemy peekSpawnedEnemyForTesting() {
+        return createRandomEnemy();
     }
 
     void checkCollisions() {
@@ -263,11 +365,17 @@ public class GamePanel extends JPanel implements Runnable {
 
                     if (!enemy.isActive()) {
                         score += enemy.getScoreValue();
+                        bestScore = Math.max(bestScore, score);
+                        if (enemy instanceof BossEnemy) {
+                            nextBossScoreThreshold = score + BOSS_SCORE_INCREMENT;
+                        }
                     }
                     break;
                 }
             }
         }
+
+        spawnBossIfEligible();
 
         if (!player.isActive()) {
             updateGameState();
@@ -306,6 +414,8 @@ public class GamePanel extends JPanel implements Runnable {
     private void drawHud(Graphics2D g) {
         g.setColor(Color.WHITE);
         g.drawString("Player HP: " + player.getHp() + "/" + player.getMaxHp(), 10, 20);
+        g.drawString("Score: " + score, 10, 36);
+        g.drawString("Best: " + bestScore, 10, 52);
 
         BossEnemy boss = findActiveBoss();
         if (boss == null) {
@@ -313,7 +423,7 @@ public class GamePanel extends JPanel implements Runnable {
         }
 
         int barX = 10;
-        int barY = 30;
+        int barY = 62;
         int barWidth = WIDTH - 20;
         int barHeight = 12;
         double ratio = Math.max(0.0, Math.min(1.0, boss.getHp() / (double) boss.getMaxHp()));

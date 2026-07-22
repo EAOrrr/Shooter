@@ -32,6 +32,21 @@ class EnemyCollisionTest {
     }
 
     @Test
+    void restartResetsCurrentScoreButKeepsBestScore() {
+        GamePanel panel = new GamePanel(false);
+        Bullet bullet = new Bullet(100, 100, 30, 30, 0, 0, true, 1);
+        SimpleEnemy enemy = new SimpleEnemy(100, 100, 30, 30, 100, 1, 10);
+
+        panel.addBullet(bullet);
+        panel.addEnemy(enemy);
+        panel.checkCollisions();
+        panel.restartGame();
+
+        assertEquals(0, panel.getScore());
+        assertEquals(10, panel.getBestScore());
+    }
+
+    @Test
     void enemyDeactivatesAfterEscapingBottomBoundary() {
         SimpleEnemy enemy = new SimpleEnemy(100, 605, 20);
 

@@ -11,7 +11,7 @@ public class Player extends AirPlane {
     private boolean invincible;
 
     public Player(double x, double y, int width, int height, int maxHp, int worldWidth, int worldHeight) {
-        this(x, y, width, height, maxHp, worldWidth, worldHeight, new SimpleShotWeapon(3, 20));
+        this(x, y, width, height, maxHp, worldWidth, worldHeight, new SimpleShotWeapon(2, 20));
     }
 
     public Player(double x, double y, int width, int height, int maxHp, int worldWidth, int worldHeight, Weapon weapon) {

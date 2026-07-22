@@ -1,4 +1,5 @@
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.Canvas;
@@ -24,6 +25,6 @@ class GameStateTest {
         assertEquals(GamePanel.GameState.RUNNING, panel.getGameState());
         assertEquals(player.getMaxHp(), player.getHp());
         assertTrue(player.isActive());
-        assertTrue(panel.getEnemies().stream().anyMatch(enemy -> enemy instanceof BossEnemy));
+        assertFalse(panel.getEnemies().stream().anyMatch(enemy -> enemy instanceof BossEnemy));
     }
 }

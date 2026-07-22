@@ -6,6 +6,9 @@ public class Player extends AirPlane {
     private double speedY;
     private final int worldWidth;
     private final int worldHeight;
+    private final double spawnX;
+    private final double spawnY;
+    private boolean invincible;
 
     public Player(double x, double y, int width, int height, int maxHp, int worldWidth, int worldHeight) {
         this(x, y, width, height, maxHp, worldWidth, worldHeight, new SimpleShotWeapon(3, 20));
@@ -14,6 +17,8 @@ public class Player extends AirPlane {
     public Player(double x, double y, int width, int height, int maxHp, int worldWidth, int worldHeight, Weapon weapon) {
         super(x, y, width, height, maxHp, maxHp, weapon);
 
+        this.spawnX = x;
+        this.spawnY = y;
         this.worldWidth = worldWidth;
         this.worldHeight = worldHeight;
     }
@@ -83,6 +88,25 @@ public class Player extends AirPlane {
         upgradableWeapon.applyStats(new WeaponStats(current.streamCount(), current.spreadWidth(), current.cooldownInterval(), nextDamage));
     }
 
+    public boolean isInvincible() {
+        return invincible;
+    }
+
+    public void setInvincible(boolean invincible) {
+        this.invincible = invincible;
+    }
+
+    void resetToSpawn() {
+        x = spawnX;
+        y = spawnY;
+        speedX = 0.0;
+        speedY = 0.0;
+        hp = maxHp;
+        active = true;
+        invincible = false;
+        weapon = new SimpleShotWeapon(3, 20);
+    }
+
     private UpgradableWeapon getUpgradableWeapon() {
         if (weapon instanceof UpgradableWeapon upgradableWeapon) {
             return upgradableWeapon;
@@ -105,6 +129,14 @@ public class Player extends AirPlane {
     public void draw(Graphics g) {
         g.setColor(Color.CYAN);
         g.fillRect((int) Math.round(x), (int) Math.round(y), width, height);
+    }
+
+    @Override
+    public void takeDamage(int damage) {
+        if (invincible) {
+            return;
+        }
+        super.takeDamage(damage);
     }
 
     @Override

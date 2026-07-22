@@ -1,3 +1,6 @@
+import java.awt.Color;
+import java.awt.Graphics;
+
 public class SimpleEnemy extends Enemy {
     private final double speedY;
 
@@ -20,5 +23,17 @@ public class SimpleEnemy extends Enemy {
         if (y > GamePanel.HEIGHT + 10) {
             active = false;
         }
+    }
+
+    @Override
+    public void draw(Graphics g) {
+        int drawX = (int) Math.round(x);
+        int drawY = (int) Math.round(y);
+
+        g.setColor(Color.RED);
+        g.fillRect(drawX, drawY, width, height);
+
+        g.setColor(Color.WHITE);
+        g.drawString(String.valueOf(hp), drawX + width / 2 - 4, drawY + height / 2 + 4);
     }
 }

@@ -52,4 +52,33 @@ class EnemyCollisionTest {
         assertFalse(enemy.isActive());
         assertEquals(initialHp - 10, player.getHp());
     }
+
+    @Test
+    void enemyBulletDamagesPlayerOnHit() {
+        GamePanel panel = new GamePanel(false);
+        Player player = panel.getPlayer();
+        int initialHp = player.getHp();
+        Bullet enemyBullet = new Bullet(player.getX(), player.getY(), player.getWidth(), player.getHeight(), 0, 0, false, 3);
+
+        panel.addBullet(enemyBullet);
+        panel.checkCollisions();
+
+        assertFalse(enemyBullet.isActive());
+        assertEquals(initialHp - 3, player.getHp());
+    }
+
+    @Test
+    void bossCollisionDefeatsBossWithoutDamagingPlayer() {
+        GamePanel panel = new GamePanel(false);
+        Player player = panel.getPlayer();
+        int initialHp = player.getHp();
+        BossEnemy boss = new BossEnemy(player.getX(), player.getY());
+
+        panel.getEnemies().clear();
+        panel.addEnemy(boss);
+        panel.checkCollisions();
+
+        assertFalse(boss.isActive());
+        assertEquals(initialHp, player.getHp());
+    }
 }

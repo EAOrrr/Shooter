@@ -66,7 +66,7 @@ I’d like to add a new feature: enemies should spawn randomly with randomized w
 There is another feature as well: the boss should only appear after a certain score threshold is reached. When the boss appears, there should be no other enemies, or the spawn rate of other enemies should be extremely low.
 
 u should write test case to test the new features thoroughly
-
+---
 I want to add a new feature: the higher the score, the stronger the enemies become (higher HP, more simultaneous bullets, faster movement speed), while also yielding more points (which also means a higher score boost when defeating bosses and higher BOSS_SCORE_INCREMENT as score increase).
 
 有时需要解释prompt的点，因为AI没有想到，比如这里武器的升级，AI没有纠正maxwidth 和 count 的关系
